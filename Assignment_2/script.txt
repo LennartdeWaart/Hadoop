@@ -1,0 +1,102 @@
+/* -- 6-assignment
+-- Load orders.csv
+define CSVLoader org.apache.pig.piggybank.storage.CSVLoader();
+ordersData = LOAD '/user/maria_dev/diplomacy/orders.csv' USING CSVLoader(',') AS
+  (game_id: int, unit_id: int, unit_order: chararray, location: chararray, target: chararray,
+  target_dest: chararray, success: int, reason: chararray, turn_num: int);
+  
+-- Filter data with target "Holland"
+filtered_data = FILTER ordersData BY target == 'Holland';
+
+-- Group by location and iterate through each group, returning the location, target and count
+result = FOREACH (GROUP filtered_data BY location) 
+	GENERATE group as location, MAX(filtered_data.target) as target, COUNT($1) as c;	
+
+-- Order the results in an alphabetical order
+ordered_data = ORDER result BY location ASC;
+
+-- Show ordered data
+DUMP ordered_data;
+*/
+
+/* -- 7-assignment
+-- Load players.csv
+define CSVLoader org.apache.pig.piggybank.storage.CSVLoader();
+playersData = LOAD '/user/maria_dev/diplomacy/players.csv' USING CSVLoader(',') AS
+  (game_id: int, country: chararray, won: int, num_supply_centers: int,
+  eliminated: int, start_turn: int, end_turn: int);
+
+-- Filter players who won
+filtered_data = FILTER playersData BY won == 1;
+
+-- Group by country and iterate through each group, returning the country and number of wins
+result = FOREACH (GROUP filtered_data BY country) 
+	GENERATE group as country, COUNT(filtered_data.won) as c;	
+
+-- Order the results by most won games
+ordered_data = ORDER result BY c DESC;
+
+-- Show ordered data
+DUMP ordered_data;
+*/
+
+/* -- 8-assignment
+-- Load games.csv & players.csv
+define CSVLoader org.apache.pig.piggybank.storage.CSVLoader();
+gamesData = LOAD '/user/maria_dev/diplomacy/games.csv' USING CSVLoader(',') AS
+  (id: int, num_turns: int, num_players: int);
+
+playersData = LOAD '/user/maria_dev/diplomacy/players.csv' USING CSVLoader(',') AS
+  (game_id: int, country: chararray, won: int, num_supply_centers: int,
+  eliminated: int, start_turn: int, end_turn: int);
+
+-- Join both bags
+relation = JOIN gamesData BY id, playersData BY game_id;
+
+-- Filter players who won
+filtered_data = FILTER relation BY won == 1;
+
+-- Group by country and iterate through each group, returning the country name based on the conditional statement and number of turns
+result = FOREACH (GROUP filtered_data BY country) 
+	GENERATE (group=='I'?'Italy': (group=='T'?'Turkey': (group=='R'?'Russia': (group=='G'?'Greece': (group=='F'?'France': (group=='E'?'England': (group=='A'?'America': group))))))) as country, SUM(filtered_data.num_turns) as num_turns;	
+
+-- Order the results by countries with the most turns
+ordered_data = ORDER result BY num_turns DESC;
+
+-- Limit the data by 10
+top10 = LIMIT ordered_data 10;
+
+-- Show ordered data
+DUMP top10;
+*/
+
+-- 9-assignment
+-- Register the classpath
+Register 'repo.py' using org.apache.pig.scripting.jython.JythonScriptEngine as myRepo;
+-- Load games.csv & players.csv
+define CSVLoader org.apache.pig.piggybank.storage.CSVLoader();
+gamesData = LOAD '/user/maria_dev/diplomacy/games.csv' USING CSVLoader(',') AS
+  (id: int, num_turns: int, num_players: int);
+
+playersData = LOAD '/user/maria_dev/diplomacy/players.csv' USING CSVLoader(',') AS
+  (game_id: int, country: chararray, won: int, num_supply_centers: int,
+  eliminated: int, start_turn: int, end_turn: int);
+
+-- Join both bags
+relation = JOIN gamesData BY id, playersData BY game_id;
+
+-- Filter players who won
+filtered_data = FILTER relation BY won == 1;
+
+-- Group by country and iterate through each group, returning the country name based on the UDF in the Python repo-file and number of turns
+result = FOREACH (GROUP filtered_data BY country) 
+	GENERATE myRepo.getCountry(group) as country, SUM(filtered_data.num_turns) as num_turns;	
+
+-- Order the results by countries with the most turns
+ordered_data = ORDER result BY num_turns DESC;
+
+-- Limit the data by 10
+top10 = LIMIT ordered_data 10;
+
+-- Show ordered data
+DUMP top10;
